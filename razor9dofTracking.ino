@@ -2,6 +2,19 @@
 #include <Filters.h>
 #include "config.h"
 
+struct vec{
+  float x;
+  float y;
+  float z;
+};
+
+struct quat{
+  float w;
+  float x;
+  float y;
+  float z;
+};
+
 // IMU Digital Motion Processing Object Declaration
 MPU9250_DMP imu;
 
@@ -32,7 +45,7 @@ void setup(){
   // INV_XYZ_GYRO, INV_XYZ_ACCEL, INV_XYZ_COMPASS,
   // INV_X_GYRO, INV_Y_GYRO, or INV_Z_GYRO
   // Enable all sensors:
-  imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
+  //imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
 
   // Use setGyroFSR() and setAccelFSR() to configure the
   // gyroscope and accelerometer full scale ranges.
@@ -51,30 +64,30 @@ void setup(){
 
   // The sample rate of the accel/gyro can be set using
   // setSampleRate. Acceptable values range from 4Hz to 1kHz
-  imu.setSampleRate(Sps); // Set sample rate to 10Hz
+  //imu.setSampleRate(Sps); // Set sample rate to 10Hz
 
   // Likewise, the compass (magnetometer) sample rate can be
   // set using the setCompassSampleRate() function.
   // This value can range between: 1-100Hz
   imu.setCompassSampleRate(Sps); // Set mag rate to 10Hz
+  imu.dmpBegin(DMP_FEATURE_6X_LP_QUAT | // Enable 6-axis quat
+               DMP_FEATURE_SEND_RAW_ACCEL, // Use gyro calibration
+              100); // Set DMP FIFO rate to 10 Hz
+  
 }
 
 void loop() 
 {
-  // dataReady() checks to see if new accel/gyro data
-  // is available. It will return a boolean true or false
-  // (New magnetometer data cannot be checked, as the library
-  //  runs that sensor in single-conversion mode.)
-  if ( imu.dataReady() )
+  // Check for new data in the FIFO
+  if ( imu.fifoAvailable() )
   {
-    // Call update() to update the imu objects sensor data.
-    // You can specify which sensors to update by combining
-    // UPDATE_ACCEL, UPDATE_GYRO, UPDATE_COMPASS, and/or
-    // UPDATE_TEMPERATURE.
-    // (The update function defaults to accel, gyro, compass,
-    //  so you don't have to specify these values.)
-    imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
-    printIMUData();
+    // Use dmpUpdateFifo to update the ax, gx, mx, etc. values
+    if ( imu.dmpUpdateFifo() == INV_SUCCESS)
+    {
+      // computeEulerAngles can be used -- after updating the
+      // quaternion values -- to estimate roll, pitch, and yaw
+      printIMUData();
+    }
   }
 }
 
@@ -91,5 +104,25 @@ void printIMUData(void)
   float accelY = imu.calcAccel(imu.ay);
   float accelZ = imu.calcAccel(imu.az);
 
-  SerialPort.println(isStationary(accelX,accelY,accelZ));
+//  SerialPort.println(isStationary(accelX,accelY,accelZ));
+  float q0 = imu.calcQuat(imu.qw);
+  float q1 = imu.calcQuat(imu.qx);
+  float q2 = imu.calcQuat(imu.qy);
+  float q3 = imu.calcQuat(imu.qz);
+
+  vec accel,quat,trueAccel;
+  accel.x = accelX;
+  accel.y = accelY;
+  accel.z = accelZ;
+
+  quat.x = q1;
+  quat.y = q2;
+  quat.z = q3;
+
+  trueAccel = rotateVec2(accel, quat, q0);
+
+  SerialPort.print(trueAccel.x); SerialPort.print(", ");
+  SerialPort.print(trueAccel.y); SerialPort.print(", ");
+  SerialPort.println(trueAccel.z);
+    
 }
