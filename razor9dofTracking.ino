@@ -3,17 +3,19 @@
 #include "config.h"
 
 struct vec{
-  float x;
-  float y;
-  float z;
+  float x=0;
+  float y=0;
+  float z=0;
 };
 
 struct quat{
-  float w;
-  float x;
-  float y;
-  float z;
+  float w=0;
+  float x=0;
+  float y=0;
+  float z=0;
 };
+
+vec dummyZero,vel;
 
 // IMU Digital Motion Processing Object Declaration
 MPU9250_DMP imu;
@@ -78,51 +80,46 @@ void setup(){
 
 void loop() 
 {
-  // Check for new data in the FIFO
-  if ( imu.fifoAvailable() )
-  {
-    // Use dmpUpdateFifo to update the ax, gx, mx, etc. values
-    if ( imu.dmpUpdateFifo() == INV_SUCCESS)
-    {
-      // computeEulerAngles can be used -- after updating the
-      // quaternion values -- to estimate roll, pitch, and yaw
-      printIMUData();
-    }
+  if ( !imu.fifoAvailable() ) return;
+  if ( imu.dmpUpdateFifo() != INV_SUCCESS) return;
+  
+  vec accel, q, trueAccel;
+  accel.x = imu.calcAccel(imu.ax);
+  accel.y = imu.calcAccel(imu.ay);
+  accel.z = imu.calcAccel(imu.az);
+  if(isStationary(accel.x,accel.y,accel.z)){
+    vel.x=0; vel.y=0; vel.z=0;
+    printVec(vel);
+  }
+  else{
+    float w;
+    w = imu.calcQuat(imu.qw);
+    q.x = imu.calcQuat(imu.qx);
+    q.y = imu.calcQuat(imu.qy);
+    q.z = imu.calcQuat(imu.qz);
+
+    trueAccel = rotateVec2(accel, q, w);
+
+    g2mss(trueAccel);
+    removeEarthGravity(trueAccel);
+    integrate(vel,trueAccel,1.0/Sps);
+
+    printVec(vel);
   }
 }
 
-void printIMUData(void)
-{  
-  // After calling update() the ax, ay, az, gx, gy, gz, mx,
-  // my, mz, time, and/or temerature class variables are all
-  // updated. Access them by placing the object. in front:
+bool feedIMU(){
+  // Check for new data in the FIFO
+  if ( imu.fifoAvailable() ){
+      // Use dmpUpdateFifo to update the ax, gx, mx, etc. values
+      if ( imu.dmpUpdateFifo() == INV_SUCCESS) return true;    
+  }
+  else return false;
+  return false;
+}
 
-  // Use the calcAccel, calcGyro, and calcMag functions to
-  // convert the raw sensor readings (signed 16-bit values)
-  // to their respective units.
-  float accelX = imu.calcAccel(imu.ax);
-  float accelY = imu.calcAccel(imu.ay);
-  float accelZ = imu.calcAccel(imu.az);
-
-//  SerialPort.println(isStationary(accelX,accelY,accelZ));
-  float q0 = imu.calcQuat(imu.qw);
-  float q1 = imu.calcQuat(imu.qx);
-  float q2 = imu.calcQuat(imu.qy);
-  float q3 = imu.calcQuat(imu.qz);
-
-  vec accel,quat,trueAccel;
-  accel.x = accelX;
-  accel.y = accelY;
-  accel.z = accelZ;
-
-  quat.x = q1;
-  quat.y = q2;
-  quat.z = q3;
-
-  trueAccel = rotateVec2(accel, quat, q0);
-
-  SerialPort.print(trueAccel.x); SerialPort.print(", ");
-  SerialPort.print(trueAccel.y); SerialPort.print(", ");
-  SerialPort.println(trueAccel.z);
-    
+void printVec(vec a){
+  SerialPort.print(a.x); SerialPort.print(", ");
+  SerialPort.print(a.y); SerialPort.print(", ");
+  SerialPort.println(a.z);
 }
