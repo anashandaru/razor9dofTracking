@@ -15,7 +15,7 @@ struct quat{
   float z=0;
 };
 
-vec dummyZero,vel;
+vec vel,pos;
 
 // IMU Digital Motion Processing Object Declaration
 MPU9250_DMP imu;
@@ -25,6 +25,7 @@ FilterOnePole highpassFilter(HIGHPASS, StadeHighpassFreq);
 FilterOnePole lowpassFilter(LOWPASS, StadeLowpassFreq);
 
 void setup(){
+  pinMode(ledPin, OUTPUT);
 	SerialPort.begin(115200);
 
   // Call imu.begin() to verify communication with and
@@ -74,7 +75,7 @@ void setup(){
   imu.setCompassSampleRate(Sps); // Set mag rate to 10Hz
   imu.dmpBegin(DMP_FEATURE_6X_LP_QUAT | // Enable 6-axis quat
                DMP_FEATURE_SEND_RAW_ACCEL, // Use gyro calibration
-              100); // Set DMP FIFO rate to 10 Hz
+              Sps); // Set DMP FIFO rate to 10 Hz
   
 }
 
@@ -87,11 +88,12 @@ void loop()
   accel.x = imu.calcAccel(imu.ax);
   accel.y = imu.calcAccel(imu.ay);
   accel.z = imu.calcAccel(imu.az);
-  if(isStationary(accel.x,accel.y,accel.z)){
+  if(isStationary2(accel.x,accel.y,accel.z)){
     vel.x=0; vel.y=0; vel.z=0;
-    printVec(vel);
+    turnLed(true);
   }
   else{
+    turnLed(false);
     float w;
     w = imu.calcQuat(imu.qw);
     q.x = imu.calcQuat(imu.qx);
@@ -103,9 +105,9 @@ void loop()
     g2mss(trueAccel);
     removeEarthGravity(trueAccel);
     integrate(vel,trueAccel,1.0/Sps);
-
-    printVec(vel);
+    if(millis()>8000)integrate(pos,vel,1.0/Sps);
   }
+  printVec(vel);
 }
 
 bool feedIMU(){

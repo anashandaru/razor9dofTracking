@@ -1,9 +1,30 @@
 bool isStationary(float accelX,float accelY,float accelZ){
 	float accel    = sqrt(sq(accelX)+sq(accelY)+sq(accelZ));
-	float weighted = lowpassFilter.input(abs(highpassFilter.input(accelY)));
-  SerialPort.print(weighted);
+  float highpassed = abs(highpassFilter.input(accel));
+	float weighted = lowpassFilter.input(highpassed);
+  SerialPort.print(accel+2);
   SerialPort.print(", ");
-  SerialPort.print(weighted<0.03?1:0);
+  SerialPort.print(weighted+2);
   SerialPort.print(", ");
-	return weighted<0.03?true:false;
+  SerialPort.print((weighted<StadeThreshold?1:0)+2);
+  SerialPort.print(", ");
+	return weighted<StadeThreshold?true:false;
+}
+
+bool isStationary2(float accelX,float accelY,float accelZ){
+  float accel    = sqrt(sq(accelX)+sq(accelY)+sq(accelZ));
+  accel -= 1;
+  accel = abs(accel);
+  float weighted = lowpassFilter.input(accel);
+  SerialPort.print(accel+2);
+  SerialPort.print(", ");
+  SerialPort.print(weighted+2);
+  SerialPort.print(", ");
+  SerialPort.print((weighted<StadeThreshold?1:0)+2);
+  SerialPort.print(", ");
+  return weighted<StadeThreshold?true:false;
+}
+
+void turnLed(bool ledState){
+      digitalWrite(ledPin, ledState);
 }
