@@ -24,6 +24,12 @@ MPU9250_DMP imu;
 FilterOnePole highpassFilter(HIGHPASS, StadeHighpassFreq);
 FilterOnePole lowpassFilter(LOWPASS, StadeLowpassFreq);
 
+// Filter Accelerometer data
+FilterOnePole lpfX(LOWPASS, AccellpfFreq);
+FilterOnePole lpfY(LOWPASS, AccellpfFreq);
+FilterOnePole lpfZ(LOWPASS, AccellpfFreq);
+
+
 void setup(){
   pinMode(ledPin, OUTPUT);
 	SerialPort.begin(115200);
@@ -84,7 +90,7 @@ void loop()
   if ( !imu.fifoAvailable() ) return;
   if ( imu.dmpUpdateFifo() != INV_SUCCESS) return;
   
-  vec accel, q, trueAccel;
+  vec accel, q, trueAccel, trueAccelF;
   accel.x = imu.calcAccel(imu.ax);
   accel.y = imu.calcAccel(imu.ay);
   accel.z = imu.calcAccel(imu.az);
@@ -101,13 +107,17 @@ void loop()
     q.z = imu.calcQuat(imu.qz);
 
     trueAccel = rotateVec2(accel, q, w);
+    trueAccelF.x = lpfX.input(trueAccel.x);
+    trueAccelF.y = lpfY.input(trueAccel.y);
+    trueAccelF.z = lpfZ.input(trueAccel.z);
 
-    g2mss(trueAccel);
-    removeEarthGravity(trueAccel);
-    integrate(vel,trueAccel,1.0/Sps);
+    g2mss(trueAccelF);
+    removeEarthGravity(trueAccelF);
+    integrate(vel,trueAccelF,1.0/Sps);
     if(millis()>8000)integrate(pos,vel,1.0/Sps);
   }
-  printVec(vel);
+  printVec(pos);
+  //printCompare(trueAccel.z,trueAccelF.z);
 }
 
 bool feedIMU(){
@@ -124,4 +134,9 @@ void printVec(vec a){
   SerialPort.print(a.x); SerialPort.print(", ");
   SerialPort.print(a.y); SerialPort.print(", ");
   SerialPort.println(a.z);
+}
+
+void printCompare(float a, float b){
+  SerialPort.print(a); SerialPort.print(", ");
+  SerialPort.println(b);
 }
